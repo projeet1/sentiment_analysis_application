@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Finance Sentiment Pipeline</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -121,7 +122,7 @@
     border-radius: 8px;
     margin: 2px 0 4px;
   }
-  .ticker-detail.open { max-height: 600px; border-color: #2a2a38; }
+  .ticker-detail.open { max-height: 1000px; border-color: #2a2a38; }
   .dropdown-inner { padding: 12px 14px; }
 
   /* Vote bar */
@@ -168,9 +169,6 @@
     padding: 6px 0; border-bottom: 1px solid #1e1e2a; font-size: 12px;
   }
   .article-item:last-child { border-bottom: none; }
-  .article-headline { color: #94a3b8; flex: 1; line-height: 1.4; }
-  .article-score    { font-weight: 600; white-space: nowrap; }
-  .article-time     { color: #475569; white-space: nowrap; font-size: 11px; }
 
   /* Skeleton loader */
   @keyframes skel-pulse { 0%,100%{opacity:.3} 50%{opacity:.6} }
@@ -190,6 +188,7 @@
     padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 600;
     cursor: pointer; border: 1px solid; letter-spacing: .03em;
     transition: opacity 0.15s; background: transparent;
+    position: relative;
   }
   .scenario-btn:hover:not(:disabled) { opacity: 0.72; }
   .scenario-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -217,6 +216,130 @@
   .toast-green { background: #052e16; border-color: #4ade80; color: #86efac; }
   .toast-gray  { background: #1e293b; border-color: #64748b; color: #94a3b8; }
   .toast-amber { background: #2d1a00; border-color: #f59e0b; color: #fbbf24; }
+
+  /* ── Event type badge colors ── */
+  .badge-EARNINGS    { background:#0c2340; color:#60a5fa; }
+  .badge-LEGAL       { background:#2d0a0a; color:#f87171; }
+  .badge-MERGER      { background:#1a0a2e; color:#c084fc; }
+  .badge-MANAGEMENT  { background:#1a1a00; color:#facc15; }
+  .badge-REGULATION  { background:#2d1a00; color:#fb923c; }
+  .badge-PRODUCT     { background:#0a2e1a; color:#4ade80; }
+  .badge-GUIDANCE    { background:#0a1a2e; color:#38bdf8; }
+  .badge-MACRO       { background:#1a0a1a; color:#e879f9; }
+  .badge-PARTNERSHIP { background:#0a2e2e; color:#2dd4bf; }
+  .badge-OTHER       { background:#1e293b; color:#94a3b8; }
+
+  .badge-IMMEDIATE   { background:#2d0a0a; color:#f87171; }
+  .badge-INTRADAY    { background:#0c2340; color:#60a5fa; }
+  .badge-SWING       { background:#0a2e1a; color:#4ade80; }
+  .badge-UNKNOWN     { background:#1e293b; color:#94a3b8; }
+
+  .badge-deduped     { background:#1e293b; color:#475569; text-decoration:line-through; }
+
+  /* ── Article row (upgraded) ── */
+  .article-row {
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding:10px 0; border-bottom:1px solid #2a2a38; gap:12px;
+  }
+  .article-row:last-child { border-bottom:none; }
+  .article-deduped { opacity:0.45; }
+  .article-main { flex:1; min-width:0; }
+  .article-headline {
+    font-size:13px; color:#e2e8f0; line-height:1.4;
+    display:block; margin-bottom:6px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .article-badges { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
+  .article-meta {
+    display:flex; flex-direction:column; align-items:flex-end;
+    gap:4px; min-width:80px; font-size:11px;
+  }
+  .article-score { font-weight:600; }
+  .article-confidence { color:#475569; }
+  .article-time { color:#475569; }
+  .badge {
+    font-size:10px; font-weight:600; padding:2px 6px;
+    border-radius:3px; letter-spacing:.04em; white-space:nowrap;
+  }
+
+  /* ── Event type distribution ── */
+  .event-dist {
+    margin-top:16px; padding-top:12px;
+    border-top:1px solid #2a2a38;
+  }
+  .event-dist-title {
+    font-size:11px; color:#475569; letter-spacing:.06em;
+    text-transform:uppercase; margin-bottom:10px;
+  }
+  .event-dist-row {
+    display:flex; align-items:center; gap:8px;
+    margin-bottom:6px;
+  }
+  .event-dist-row .badge { min-width:90px; text-align:center; }
+  .event-bar-track {
+    flex:1; height:4px; background:#2a2a38;
+    border-radius:2px; overflow:hidden;
+  }
+  .event-bar-fill {
+    height:100%; border-radius:2px;
+    transition:width 0.5s ease;
+  }
+  .event-dist-count {
+    font-size:11px; color:#64748b; min-width:20px;
+    text-align:right;
+  }
+
+  /* ── Sentiment history chart ── */
+  .history-chart-container {
+    margin-bottom:16px; padding-bottom:12px;
+    border-bottom:1px solid #2a2a38;
+    overflow-x:auto;
+  }
+  .history-chart-title {
+    font-size:11px; color:#475569; letter-spacing:.06em;
+    text-transform:uppercase; margin-bottom:8px;
+  }
+
+  /* ── Signal history panel ── */
+  .signal-history-item {
+    display:flex; justify-content:space-between;
+    align-items:center; padding:8px 0;
+    border-bottom:1px solid #2a2a38; gap:8px;
+  }
+  .signal-history-item:last-child { border-bottom:none; }
+  .signal-history-left {
+    display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  }
+  .signal-history-ticker {
+    font-weight:600; color:#c084fc; font-size:12px;
+  }
+  .signal-history-right {
+    display:flex; flex-direction:column; align-items:flex-end;
+    gap:2px; min-width:70px;
+  }
+  .signal-history-score { font-size:12px; color:#e2e8f0; }
+  .signal-history-time  { font-size:11px; color:#475569; }
+
+  /* ── Analysis mode indicator ── */
+  .analysis-mode-indicator {
+    display:flex; align-items:center; gap:6px;
+    font-size:11px; color:#475569; margin-bottom:12px;
+  }
+  .mode-dot {
+    width:6px; height:6px; border-radius:50%;
+    background:#4ade80; flex-shrink:0;
+  }
+  .mode-dot.external { background:#60a5fa; }
+
+  /* ── Scenario tooltip ── */
+  .scenario-tooltip {
+    display:none; position:absolute; bottom:110%; left:50%;
+    transform:translateX(-50%); background:#1a1a24;
+    border:1px solid #2a2a38; border-radius:6px;
+    padding:6px 10px; font-size:11px; color:#94a3b8;
+    white-space:nowrap; z-index:10; pointer-events:none;
+  }
+  .scenario-btn:hover .scenario-tooltip { display:block; }
 </style>
 </head>
 <body>
@@ -253,6 +376,10 @@
   <!-- Ensemble strategy panel -->
   <div class="card">
     <h2>Ensemble strategies</h2>
+    <div class="analysis-mode-indicator">
+      <span class="mode-dot" id="mode-dot"></span>
+      <span id="analysis-mode-text">Local Heuristic Analysis</span>
+    </div>
     <div id="stats-list"></div>
   </div>
 
@@ -266,6 +393,14 @@
 
 </div>
 
+<!-- Signal History -->
+<div class="card" style="margin-bottom:24px">
+  <h2>Signal History</h2>
+  <div id="signal-history-list">
+    <div style="color:#475569;font-size:13px;padding:8px 0;">No signals recorded yet</div>
+  </div>
+</div>
+
 <script>
 // ─── State ────────────────────────────────────────────────────────────────────
 let expandedTicker     = null;
@@ -274,6 +409,7 @@ let footerInterval     = null;   // 1 s "Xs ago" updater
 let lastAllStats       = [];     // last /stats response, kept for dropdown restores
 const dropdownFetchedAt   = {}; // ticker → ms timestamp of last full fetch
 const latestArticlesCache = {}; // ticker → articles array
+const chartInstances      = {}; // ticker → Chart.js instance
 
 // ─── Color / badge helpers ────────────────────────────────────────────────────
 function scoreColor(s) {
@@ -417,31 +553,185 @@ function renderArticlesSection(articles) {
     return '<div style="color:#475569;font-size:12px;padding:4px 0">No articles analysed yet</div>';
   }
   return articles.map(a => {
-    const sc    = parseFloat(a.score);
-    const color = sc > 0.1 ? '#4ade80' : sc < -0.1 ? '#f87171' : '#64748b';
-    const hl    = a.headline || '—';
-    const short = hl.length > 70 ? hl.substring(0, 70) + '\u2026' : hl;
-    return `<div class="article-item">
-      <span class="article-headline">${short}</span>
-      <span class="article-score" style="color:${color}">${sc.toFixed(3)}</span>
-      <span class="article-time">${timeSince(a.publishedAt)}</span>
+    const sc         = parseFloat(a.score || 0);
+    const color      = scoreColor(sc);
+    const hl         = a.headline || '—';
+    const eventType  = a.eventType  || 'OTHER';
+    const horizon    = a.horizon    || 'UNKNOWN';
+    const confidence = typeof a.confidence === 'number' ? a.confidence : 0;
+    const isBreaking = !!a.isBreaking;
+    const deduped    = !!a.deduped;
+
+    return `<div class="article-row${deduped ? ' article-deduped' : ''}">
+      <div class="article-main">
+        <span class="article-headline">${hl}</span>
+        <div class="article-badges">
+          <span class="badge badge-${eventType}">${eventType}</span>
+          <span class="badge badge-${horizon}">${horizon}</span>
+          ${isBreaking ? '<span class="badge badge-LEGAL">BREAKING</span>' : ''}
+          ${deduped    ? '<span class="badge badge-deduped">DEDUPED</span>'  : ''}
+        </div>
+      </div>
+      <div class="article-meta">
+        <span class="article-score" style="color:${color}">${sc.toFixed(3)}</span>
+        <span class="article-confidence">${Math.round(confidence * 100)}% conf</span>
+        <span class="article-time">${timeSince(a.publishedAt)}</span>
+      </div>
     </div>`;
   }).join('');
 }
 
-function renderFullDropdown(ticker, detailEl, tickerStats, articles) {
+function renderEventDist(eventTypes) {
+  if (!eventTypes || !Object.keys(eventTypes).length) {
+    return '<div style="color:#475569;font-size:12px">No event data yet</div>';
+  }
+  const entries = Object.entries(eventTypes)
+    .filter(([, count]) => count > 0)
+    .sort(([, a], [, b]) => b - a);
+  if (!entries.length) return '<div style="color:#475569;font-size:12px">No event data yet</div>';
+  const maxCount = entries[0][1];
+  return entries.map(([type, count]) => {
+    const pct = maxCount > 0 ? Math.round(count / maxCount * 100) : 0;
+    return `<div class="event-dist-row">
+      <span class="badge badge-${type}">${type}</span>
+      <div class="event-bar-track">
+        <div class="event-bar-fill badge-${type}" style="width:${pct}%"></div>
+      </div>
+      <span class="event-dist-count">${count}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderHistoryChart(ticker, snapshots) {
+  if (!snapshots || !snapshots.length) return;
+  const canvasEl = document.getElementById('chart-' + ticker);
+  if (!canvasEl) return;
+
+  // Destroy existing instance
+  if (chartInstances[ticker]) {
+    chartInstances[ticker].destroy();
+    delete chartInstances[ticker];
+  }
+
+  // Snapshots from Redis are newest-first; reverse so oldest is on left
+  const ordered = [...snapshots].reverse();
+  const scores  = ordered.map(s => typeof s.ensembleScore === 'number' ? s.ensembleScore : parseFloat(s.ensembleScore || 0));
+  const labels  = ordered.map((s, i) => {
+    const diff = Math.floor((Date.now() - new Date(s.timestamp)) / 1000);
+    if (diff < 60)   return diff + 's ago';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    return Math.floor(diff / 3600) + 'h ago';
+  });
+
+  const latest     = scores[scores.length - 1] || 0;
+  const lineColor  = latest >= 0.1 ? '#4ade80' : latest <= -0.1 ? '#f87171' : '#94a3b8';
+
+  const ctx = canvasEl.getContext('2d');
+
+  // Gradient fill
+  const gradient = ctx.createLinearGradient(0, 0, 0, 80);
+  gradient.addColorStop(0,   lineColor.replace(')', ', 0.15)').replace('rgb', 'rgba').replace('#', 'rgba(').replace('rgba(', ''));
+  gradient.addColorStop(1,   'rgba(0,0,0,0)');
+
+  // Build a proper rgba for fill from hex
+  function hexToRgba(hex, alpha) {
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+  const fillGradient = ctx.createLinearGradient(0, 0, 0, 80);
+  fillGradient.addColorStop(0, hexToRgba(lineColor, 0.1));
+  fillGradient.addColorStop(1, hexToRgba(lineColor, 0.0));
+
+  // Threshold datasets (flat lines at ±0.15)
+  const buyLine  = scores.map(() => 0.15);
+  const sellLine = scores.map(() => -0.15);
+
+  chartInstances[ticker] = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          data: buyLine,
+          borderColor: '#f59e0b',
+          borderWidth: 1,
+          borderDash: [4, 3],
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+          label: 'BUY',
+          order: 2
+        },
+        {
+          data: sellLine,
+          borderColor: '#f59e0b',
+          borderWidth: 1,
+          borderDash: [4, 3],
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+          label: 'SELL',
+          order: 2
+        },
+        {
+          data: scores,
+          borderColor: lineColor,
+          borderWidth: 2,
+          backgroundColor: fillGradient,
+          pointRadius: 2,
+          pointHoverRadius: 4,
+          fill: true,
+          tension: 0.4,
+          label: 'Ensemble',
+          order: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: false },
+        y: {
+          display: true,
+          min: -1.0,
+          max: 1.0,
+          ticks: { color: '#475569', font: { size: 10 }, stepSize: 0.5 },
+          grid: { color: '#2a2a38' }
+        }
+      }
+    }
+  });
+}
+
+function renderFullDropdown(ticker, detailEl, tickerStats, articles, snapshots, eventTypes) {
   detailEl.innerHTML = `
     <div class="dropdown-inner">
       <div id="strategy-section-${ticker}">
         ${tickerStats ? renderStrategySection(tickerStats) : renderSkeleton()}
       </div>
+      <div class="history-chart-container">
+        <div class="history-chart-title">Sentiment History</div>
+        <canvas id="chart-${ticker}" height="80"></canvas>
+      </div>
       <div class="articles-section-title">Recent Articles</div>
       <div id="articles-section-${ticker}">
         ${renderArticlesSection(articles)}
       </div>
+      <div class="event-dist">
+        <div class="event-dist-title">Event Type Distribution</div>
+        <div id="event-dist-${ticker}">
+          ${renderEventDist(eventTypes)}
+        </div>
+      </div>
       <div class="dropdown-footer" id="dropdown-footer-${ticker}">Updated just now</div>
     </div>`;
   updateActivityDot(ticker, articles);
+  // Render chart after DOM update
+  requestAnimationFrame(() => renderHistoryChart(ticker, snapshots));
 }
 
 function updateActivityDot(ticker, articles) {
@@ -467,34 +757,60 @@ async function fetchArticles(ticker) {
   }
 }
 
+async function fetchSnapshots(ticker) {
+  try {
+    const res = await fetch('/api/history/ticker/' + ticker + '/snapshots');
+    return await res.json();
+  } catch (e) {
+    console.error('snapshots fetch:', e);
+    return [];
+  }
+}
+
+async function fetchEventTypes(ticker) {
+  try {
+    const res = await fetch('/api/history/eventtypes/' + ticker);
+    return await res.json();
+  } catch (e) {
+    console.error('eventtypes fetch:', e);
+    return {};
+  }
+}
+
 async function openDropdown(ticker, detailEl) {
-  const now      = Date.now();
+  const now       = Date.now();
   const lastFetch = dropdownFetchedAt[ticker] || 0;
-  const isFresh  = (now - lastFetch) < 10000 && latestArticlesCache[ticker];
+  const isFresh   = (now - lastFetch) < 10000 && latestArticlesCache[ticker];
 
   let tickerStats = lastAllStats.find(s => s.ticker === ticker);
-  let articles;
+  let articles, snapshots, eventTypes;
 
   if (isFresh) {
-    articles = latestArticlesCache[ticker];
+    articles   = latestArticlesCache[ticker];
+    snapshots  = [];
+    eventTypes = {};
   } else {
     try {
-      const [allStats, freshArticles] = await Promise.all([
+      const [allStats, freshArticles, freshSnapshots, freshEventTypes] = await Promise.all([
         fetch('/api/dashboard/stats').then(r => r.json()),
-        fetchArticles(ticker)
+        fetchArticles(ticker),
+        fetchSnapshots(ticker),
+        fetchEventTypes(ticker)
       ]);
       lastAllStats = allStats;
       tickerStats  = allStats.find(s => s.ticker === ticker);
       articles     = freshArticles;
+      snapshots    = freshSnapshots;
+      eventTypes   = freshEventTypes;
       latestArticlesCache[ticker] = articles;
       dropdownFetchedAt[ticker]   = now;
     } catch (e) {
       console.error('dropdown open fetch:', e);
-      articles = [];
+      articles = []; snapshots = []; eventTypes = {};
     }
   }
 
-  renderFullDropdown(ticker, detailEl, tickerStats, articles);
+  renderFullDropdown(ticker, detailEl, tickerStats, articles, snapshots, eventTypes);
 }
 
 async function refreshExpandedDropdown() {
@@ -502,9 +818,11 @@ async function refreshExpandedDropdown() {
   const detailEl = document.getElementById('detail-' + expandedTicker);
   if (!detailEl) return;
   try {
-    const [allStats, articles] = await Promise.all([
+    const [allStats, articles, snapshots, eventTypes] = await Promise.all([
       fetch('/api/dashboard/stats').then(r => r.json()),
-      fetchArticles(expandedTicker)
+      fetchArticles(expandedTicker),
+      fetchSnapshots(expandedTicker),
+      fetchEventTypes(expandedTicker)
     ]);
     lastAllStats = allStats;
     latestArticlesCache[expandedTicker] = articles;
@@ -512,9 +830,13 @@ async function refreshExpandedDropdown() {
 
     const tickerStats  = allStats.find(s => s.ticker === expandedTicker);
     const stratSection = document.getElementById('strategy-section-' + expandedTicker);
-    const artSection   = document.getElementById('articles-section-' + expandedTicker);
+    const artSection   = document.getElementById('articles-section-'  + expandedTicker);
+    const distSection  = document.getElementById('event-dist-'         + expandedTicker);
+
     if (stratSection && tickerStats) stratSection.innerHTML = renderStrategySection(tickerStats);
     if (artSection)                  artSection.innerHTML   = renderArticlesSection(articles);
+    if (distSection)                 distSection.innerHTML  = renderEventDist(eventTypes);
+    renderHistoryChart(expandedTicker, snapshots);
     updateActivityDot(expandedTicker, articles);
   } catch (e) {
     console.error('dropdown refresh:', e);
@@ -523,6 +845,11 @@ async function refreshExpandedDropdown() {
 
 function collapseDropdown() {
   if (!expandedTicker) return;
+  // Destroy chart instance
+  if (chartInstances[expandedTicker]) {
+    chartInstances[expandedTicker].destroy();
+    delete chartInstances[expandedTicker];
+  }
   const detailEl  = document.getElementById('detail-'  + expandedTicker);
   const chevronEl = document.getElementById('chevron-' + expandedTicker);
   if (detailEl)  detailEl.classList.remove('open');
@@ -586,6 +913,23 @@ async function loadStats() {
     lastAllStats   = allStats;
     const el       = document.getElementById('stats-list');
 
+    // Update analysis mode indicator from cached articles
+    const allCached = Object.values(latestArticlesCache).flat();
+    const hasExternal = allCached.some(a => a && a.analysisMode === 'ANTHROPIC');
+    const modeDot  = document.getElementById('mode-dot');
+    const modeText = document.getElementById('analysis-mode-text');
+    if (modeDot && modeText) {
+      if (hasExternal) {
+        modeDot.classList.add('external');
+        modeText.textContent = 'External LLM Analysis';
+        modeText.style.color = '#60a5fa';
+      } else {
+        modeDot.classList.remove('external');
+        modeText.textContent = 'Local Heuristic Analysis';
+        modeText.style.color = '#475569';
+      }
+    }
+
     el.innerHTML = allStats.map(s => {
       const sig      = s.ensembleSignal || 'HOLD';
       const color    = ensembleScoreColor(sig);
@@ -628,7 +972,7 @@ async function loadStats() {
         } else {
           // First restore after DOM wipe — render the full dropdown from cache
           const articles = latestArticlesCache[expandedTicker] || [];
-          renderFullDropdown(expandedTicker, detailEl, tickerStats, articles);
+          renderFullDropdown(expandedTicker, detailEl, tickerStats, articles, [], {});
         }
       }
     }
@@ -663,6 +1007,38 @@ async function loadSignals() {
   } catch (e) { console.error('signals:', e); }
 }
 
+async function loadSignalHistory() {
+  try {
+    const res     = await fetch('/api/history/signals');
+    const signals = await res.json();
+    const el      = document.getElementById('signal-history-list');
+    if (!signals.length) {
+      el.innerHTML = '<div style="color:#475569;font-size:13px;padding:8px 0;">No signals recorded yet</div>';
+      return;
+    }
+    el.innerHTML = signals.slice(0, 15).map(s => {
+      const signalType  = s.signalType  || 'BUY';
+      const ticker      = s.ticker      || '—';
+      const eventType   = s.eventType   || 'OTHER';
+      const isBreaking  = s.isBreaking  === 'true' || s.isBreaking === true;
+      const score       = parseFloat(s.sentimentScore || s.score || 0);
+      const ts          = s.timestamp   || '';
+      return `<div class="signal-history-item">
+        <div class="signal-history-left">
+          <span class="signal-type ${signalType === 'BUY' ? 'signal-buy' : 'signal-sell'}">${signalType}</span>
+          <span class="signal-history-ticker">${ticker}</span>
+          <span class="badge badge-${eventType}">${eventType}</span>
+          ${isBreaking ? '<span class="badge badge-LEGAL">BREAKING</span>' : ''}
+        </div>
+        <div class="signal-history-right">
+          <span class="signal-history-score">${score.toFixed(3)}</span>
+          <span class="signal-history-time">${timeSince(ts)}</span>
+        </div>
+      </div>`;
+    }).join('');
+  } catch (e) { console.error('signal history:', e); }
+}
+
 async function triggerPoll() {
   const btn = document.querySelector('.btn-primary');
   btn.textContent = 'Polling...';
@@ -677,6 +1053,21 @@ async function triggerPoll() {
 // ─── Event Simulator ─────────────────────────────────────────────────────────
 let scenarioList = [];
 
+const scenarioEventTypes = {
+  'CRASH':   'LEGAL, MANAGEMENT',
+  'BEARISH': 'LEGAL, REGULATION',
+  'NEUTRAL': 'MACRO, OTHER',
+  'BULLISH': 'EARNINGS, GUIDANCE',
+  'EUPHORIA':'EARNINGS, PRODUCT'
+};
+
+function scenarioTooltipText(s) {
+  const count     = s.articleCount || 3;
+  const sentiment = s.sentiment   || 'NEUTRAL';
+  const types     = scenarioEventTypes[sentiment] || 'OTHER';
+  return `Injects ${count} ${sentiment.toLowerCase()} headlines → triggers ${types} classification`;
+}
+
 async function loadScenarios() {
   try {
     const res    = await fetch('/api/events/scenarios');
@@ -684,7 +1075,10 @@ async function loadScenarios() {
     const el     = document.getElementById('scenario-buttons');
     el.innerHTML = scenarioList.map((s, idx) =>
       `<button class="scenario-btn ${scenarioBtnClass(s)}" id="scenario-btn-${idx}"
-               onclick="injectScenario(${idx})">${s.name}</button>`
+               onclick="injectScenario(${idx})">
+        ${s.name}
+        <span class="scenario-tooltip">${scenarioTooltipText(s)}</span>
+      </button>`
     ).join('');
   } catch (e) {
     console.error('scenarios:', e);
@@ -711,8 +1105,8 @@ async function injectScenario(idx) {
   const scenario = scenarioList[idx];
   if (!scenario) return;
   const btn      = document.getElementById('scenario-btn-' + idx);
-  const origText = btn.textContent;
-  btn.textContent = 'Injecting\u2026';
+  const origText = btn.childNodes[0].textContent.trim();
+  btn.childNodes[0].textContent = 'Injecting\u2026 ';
   btn.disabled    = true;
   try {
     const res  = await fetch('/api/events/inject', {
@@ -730,7 +1124,10 @@ async function injectScenario(idx) {
     showToast('Error injecting event', 'toast-gray');
     console.error('inject:', e);
   } finally {
-    setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2000);
+    setTimeout(() => {
+      btn.childNodes[0].textContent = origText + ' ';
+      btn.disabled = false;
+    }, 2000);
   }
 }
 
@@ -771,7 +1168,10 @@ async function refresh() {
 
 loadScenarios();
 refresh();
+loadSignalHistory();
 setInterval(refresh, 5000);
+setInterval(loadSignalHistory, 30000);
+setInterval(() => { if (expandedTicker) refreshExpandedDropdown(); }, 15000);
 </script>
 </body>
 </html>

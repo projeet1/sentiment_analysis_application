@@ -1,5 +1,7 @@
 package com.acp.finance.service;
 
+import com.acp.finance.analysis.DedupeChecker;
+import com.acp.finance.analysis.LocalHeuristicAnalyser;
 import com.acp.finance.config.AppProperties;
 import com.acp.finance.model.NewsArticle;
 import com.acp.finance.model.SentimentResult;
@@ -36,31 +38,129 @@ public class SentimentScoringService {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper mapper = new ObjectMapper();
     private final RestTemplate restTemplate = new RestTemplate();
+    private final LocalHeuristicAnalyser localHeuristicAnalyser;
+    private final DedupeChecker dedupeChecker;
 
-    public SentimentScoringService(AppProperties props, KafkaTemplate<String, String> kafkaTemplate) {
+    public SentimentScoringService(AppProperties props,
+                                   KafkaTemplate<String, String> kafkaTemplate,
+                                   LocalHeuristicAnalyser localHeuristicAnalyser,
+                                   DedupeChecker dedupeChecker) {
         this.props = props;
         this.kafkaTemplate = kafkaTemplate;
+        this.localHeuristicAnalyser = localHeuristicAnalyser;
+        this.dedupeChecker = dedupeChecker;
     }
 
     @KafkaListener(topics = "${app.kafka.topic.raw:news-raw}", groupId = "sentiment-scorer")
     public void score(String message) {
         try {
             NewsArticle article = mapper.readValue(message, NewsArticle.class);
-            SentimentScore result = mockSentiment
-                    ? scoreMock(article.getTitle())
-                    : callAnthropicApi(article.getTicker(), article.getTitle());
 
-            SentimentResult sentimentResult = new SentimentResult();
-            sentimentResult.setTicker(article.getTicker());
-            sentimentResult.setHeadline(article.getTitle());
-            sentimentResult.setScore(result.score);
-            sentimentResult.setReasoning(result.reasoning);
-            sentimentResult.setPublishedAt(article.getPublishedAt());
+            // STEP 1 — populate missing metadata
+            String normalised = NewsArticle.normalise(article.getTitle());
+            if (article.getContentHash() == null || article.getContentHash().isBlank()) {
+                article.setContentHash(NewsArticle.computeHash(normalised));
+            }
+            if (article.getArticleId() == null || article.getArticleId().isBlank()) {
+                article.setArticleId(java.util.UUID.randomUUID().toString());
+            }
+            if (article.getIngestedAt() == null || article.getIngestedAt().isBlank()) {
+                article.setIngestedAt(java.time.Instant.now().toString());
+            }
+            if (article.getSourceMode() == null || article.getSourceMode().isBlank()) {
+                String src = article.getSource() != null ? article.getSource() : "";
+                article.setSourceMode(
+                    (src.equals("TemplateNews") || src.equals("MarketEvent"))
+                    ? "LOCAL" : "EXTERNAL");
+            }
 
-            String json = mapper.writeValueAsString(sentimentResult);
+            // STEP 2 — dedupe check
+            boolean isDuplicate = dedupeChecker.checkAndMark(article.getContentHash());
+
+            if (isDuplicate) {
+                log.info("[Scorer] DEDUPED {} | {}", article.getTicker(), article.getTitle());
+
+                SentimentResult dupeResult = new SentimentResult();
+                dupeResult.setTicker(article.getTicker());
+                dupeResult.setHeadline(article.getTitle());
+                dupeResult.setScore(0.0);
+                dupeResult.setPublishedAt(article.getPublishedAt());
+                dupeResult.setDeduped(true);
+                dupeResult.setArticleId(article.getArticleId());
+                dupeResult.setContentHash(article.getContentHash());
+                dupeResult.setSourceMode(article.getSourceMode());
+                dupeResult.setEventType("OTHER");
+                dupeResult.setHorizon("UNKNOWN");
+                dupeResult.setConfidence(0.0);
+                dupeResult.setAnalysisMode("DEDUPED");
+
+                String dupeJson = mapper.writeValueAsString(dupeResult);
+                kafkaTemplate.send(props.kafkaTopicSentiment, article.getTicker(), dupeJson);
+                return;
+            }
+
+            // STEP 3 — run local heuristic analysis regardless of mode
+            LocalHeuristicAnalyser.AnalysisResult analysis =
+                localHeuristicAnalyser.analyse(article.getTitle());
+
+            // STEP 4 — score the headline
+            double score;
+            String reasoning;
+            String eventType = null;
+            String horizon = null;
+            double confidence = 0.0;
+            boolean isBreaking = false;
+            String analysisMode;
+
+            if (mockSentiment) {
+                SentimentScore mockScore = scoreMock(article.getTitle());
+                score = mockScore.score();
+                reasoning = mockScore.reasoning();
+                analysisMode = "LOCAL_HEURISTIC";
+                eventType = analysis.eventType();
+                horizon = analysis.horizon();
+                confidence = analysis.confidence();
+                isBreaking = analysis.isBreaking();
+            } else {
+                FullScore full = callAnthropicApi(article.getTicker(), article.getTitle(), analysis);
+                score = full.score();
+                reasoning = full.reasoning();
+                eventType = full.eventType();
+                horizon = full.horizon();
+                confidence = full.confidence();
+                isBreaking = full.isBreaking();
+                analysisMode = "ANTHROPIC";
+            }
+
+            // STEP 5 — build SentimentResult with ALL fields
+            SentimentResult result = new SentimentResult();
+            result.setTicker(article.getTicker());
+            result.setHeadline(article.getTitle());
+            result.setScore(score);
+            result.setReasoning(reasoning);
+            result.setPublishedAt(article.getPublishedAt());
+
+            // New enrichment fields
+            result.setEventType(eventType != null ? eventType : analysis.eventType());
+            result.setHorizon(horizon != null ? horizon : analysis.horizon());
+            result.setConfidence(confidence > 0 ? confidence : analysis.confidence());
+            result.setBreaking(isBreaking || analysis.isBreaking());
+            result.setDeduped(false);
+            result.setArticleId(article.getArticleId());
+            result.setContentHash(article.getContentHash());
+            result.setSourceMode(article.getSourceMode());
+            result.setAnalysisMode(analysisMode);
+
+            // STEP 6 — publish as before
+            String json = mapper.writeValueAsString(result);
             kafkaTemplate.send(props.kafkaTopicSentiment, article.getTicker(), json);
 
-            log.info("[Scorer] {} | score={} | {}", article.getTicker(), result.score, article.getTitle());
+            log.info("[Scorer] {} | score={} | type={} | horizon={} | breaking={} | confidence={} | {}",
+                article.getTicker(), score,
+                result.getEventType(), result.getHorizon(),
+                result.isBreaking(),
+                String.format("%.2f", result.getConfidence()),
+                article.getTitle());
 
         } catch (Exception e) {
             log.error("[Scorer] Error scoring message: {}", e.getMessage());
@@ -78,24 +178,31 @@ public class SentimentScoringService {
         return new SentimentScore(0.05, "mock neutral");
     }
 
-    private SentimentScore callAnthropicApi(String ticker, String headline) {
+    private FullScore callAnthropicApi(String ticker, String headline,
+                                       LocalHeuristicAnalyser.AnalysisResult analysis) {
         if (props.anthropicApiKey == null || props.anthropicApiKey.isBlank()) {
             log.warn("[Scorer] ANTHROPIC_API_KEY not set — using neutral score");
-            return new SentimentScore(0.0, "no api key");
+            return new FullScore(0.0, "no api key",
+                analysis.eventType(), analysis.horizon(),
+                analysis.confidence(), analysis.isBreaking());
         }
 
         try {
             String prompt = String.format(
-                    "You are a financial sentiment analyser. " +
-                    "Score the sentiment of this news headline for stock ticker %s. " +
-                    "Return ONLY a valid JSON object — no markdown, no explanation outside the JSON. " +
-                    "Format: {\"score\": <float -1.0 to 1.0>, \"reasoning\": \"<5 words max>\"} " +
-                    "Where -1.0 = extremely bearish, 0.0 = neutral, 1.0 = extremely bullish. " +
-                    "Headline: \"%s\"", ticker, headline);
+                "You are a financial sentiment analyser. " +
+                "Score the sentiment of this news headline for stock ticker %s. " +
+                "Return ONLY a valid JSON object — no markdown, no explanation outside the JSON. " +
+                "Format: {\"score\": <float -1.0 to 1.0>, \"reasoning\": \"<5 words max>\", " +
+                "\"eventType\": \"<EARNINGS|GUIDANCE|MERGER|REGULATION|PRODUCT|MANAGEMENT|LEGAL|MACRO|PARTNERSHIP|OTHER>\", " +
+                "\"horizon\": \"<IMMEDIATE|INTRADAY|SWING|UNKNOWN>\", " +
+                "\"confidence\": <float 0.0 to 1.0>, " +
+                "\"isBreaking\": <true|false>} " +
+                "Where -1.0 = extremely bearish, 0.0 = neutral, 1.0 = extremely bullish. " +
+                "Headline: \"%s\"", ticker, headline);
 
             Map<String, Object> body = Map.of(
                     "model", "claude-haiku-4-5-20251001",
-                    "max_tokens", 120,
+                    "max_tokens", 200,
                     "messages", List.of(Map.of("role", "user", "content", prompt))
             );
 
@@ -118,17 +225,29 @@ public class SentimentScoringService {
             content = content.replaceAll("(?s)```[a-z]*", "").replaceAll("```", "").trim();
 
             JsonNode parsed = mapper.readTree(content);
-            double score = Math.max(-1.0, Math.min(1.0, parsed.path("score").asDouble(0.0)));
+            double score = Math.max(-1.0, Math.min(1.0,
+                parsed.path("score").asDouble(0.0)));
             String reasoning = parsed.path("reasoning").asText("n/a");
+            String eventType = parsed.path("eventType").asText(analysis.eventType());
+            String horizon = parsed.path("horizon").asText(analysis.horizon());
+            double confidence = parsed.path("confidence").asDouble(analysis.confidence());
+            boolean isBreaking = parsed.path("isBreaking").asBoolean(analysis.isBreaking());
 
-            return new SentimentScore(score, reasoning);
+            return new FullScore(score, reasoning, eventType, horizon, confidence, isBreaking);
 
         } catch (Exception e) {
             log.error("[Scorer] Anthropic API error: {}", e.getMessage());
-            return new SentimentScore(0.0, "api error");
+            return new FullScore(0.0, "api error",
+                analysis.eventType(), analysis.horizon(),
+                analysis.confidence(), analysis.isBreaking());
         }
     }
 
-    // Simple inner record for the parsed API result
+    // Simple inner record for mock scoring result
     private record SentimentScore(double score, String reasoning) {}
+
+    // Full scoring result including all enrichment fields
+    private record FullScore(double score, String reasoning,
+                             String eventType, String horizon,
+                             double confidence, boolean isBreaking) {}
 }

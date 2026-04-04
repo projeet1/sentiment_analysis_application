@@ -59,6 +59,24 @@ public class AggregatorService {
             SentimentResult result = mapper.readValue(message, SentimentResult.class);
             String ticker = result.getTicker();
 
+            // ADDITION 2 — skip strategy updates for deduped articles
+            if (result.isDeduped()) {
+                log.info("[Aggregator] Skipping deduped article for {}: {}",
+                    ticker, result.getHeadline());
+
+                // Still store in recent articles for dashboard visibility
+                try {
+                    String recentKey = "recent:" + ticker;
+                    redis.opsForList().leftPush(recentKey,
+                        mapper.writeValueAsString(result));
+                    redis.opsForList().trim(recentKey, 0, 4);
+                } catch (Exception e) {
+                    log.error("[Aggregator] Error storing deduped recent article: {}",
+                        e.getMessage());
+                }
+                return;
+            }
+
             // --- Update all strategies with the new score ---
             for (SentimentStrategy strategy : strategies) {
                 strategy.update(ticker, result.getScore(), redis);
@@ -70,6 +88,29 @@ public class AggregatorService {
 
             // Store latest ensemble result in memory for dashboard
             latestEnsembleResults.put(ticker, ensemble);
+
+            // ADDITION 1 — history snapshotting
+            try {
+                Map<String, Object> snapshot = new LinkedHashMap<>();
+                snapshot.put("timestamp", java.time.Instant.now().toString());
+                snapshot.put("ensembleScore", ensemble.ensembleScore());
+                snapshot.put("ensembleSignal", ensemble.ensembleSignal());
+                snapshot.put("buyVotes", ensemble.buyVotes());
+                snapshot.put("sellVotes", ensemble.sellVotes());
+                snapshot.put("holdVotes", ensemble.holdVotes());
+                snapshot.put("eventType", result.getEventType());
+                snapshot.put("isBreaking", result.isBreaking());
+                snapshot.put("confidence", result.getConfidence());
+                snapshot.put("deduped", result.isDeduped());
+
+                String historyKey = "history:" + ticker + ":snapshots";
+                redis.opsForList().leftPush(historyKey,
+                    mapper.writeValueAsString(snapshot));
+                redis.opsForList().trim(historyKey, 0, 99);
+            } catch (Exception e) {
+                log.error("[Aggregator] Error writing snapshot for {}: {}",
+                    ticker, e.getMessage());
+            }
 
             // --- Store recent article in Redis list ---
             String recentKey = "recent:" + ticker;
@@ -105,7 +146,9 @@ public class AggregatorService {
 
             if (shouldFire) {
                 fireSignal(ticker, signalType, ensemble.ensembleScore(),
-                        result.getHeadline(), result.getReasoning(), ensembleSignal);
+                        result.getHeadline(), result.getReasoning(), ensembleSignal,
+                        result.getEventType(), result.getConfidence(),
+                        result.isBreaking(), result.getHorizon());
                 redis.opsForValue().set(lastSignalKey, signalType);
             }
 
@@ -115,7 +158,9 @@ public class AggregatorService {
     }
 
     private void fireSignal(String ticker, String type, double score,
-                            String headline, String reasoning, String ensembleSignal) {
+                            String headline, String reasoning, String ensembleSignal,
+                            String eventType, double confidence,
+                            boolean isBreaking, String horizon) {
         try {
             TradeSignal signal = new TradeSignal();
             signal.setId(UUID.randomUUID().toString());
@@ -142,6 +187,10 @@ public class AggregatorService {
             item.put("reasoning",      attr(signal.getReasoning()));
             item.put("timestamp",      attr(signal.getTimestamp()));
             item.put("ensembleSignal", attr(ensembleSignal));
+            item.put("eventType",      attr(eventType != null ? eventType : "OTHER"));
+            item.put("confidence",     attr(String.format("%.2f", confidence)));
+            item.put("isBreaking",     attr(String.valueOf(isBreaking)));
+            item.put("horizon",        attr(horizon != null ? horizon : "UNKNOWN"));
 
             dynamoDbClient.putItem(PutItemRequest.builder()
                     .tableName(props.dynamoDbTable)
