@@ -14,7 +14,10 @@ import java.util.Map;
 import java.util.Random;
 
 @Component
-@ConditionalOnProperty(name = "MOCK_NEWS", havingValue = "true")
+@ConditionalOnProperty(
+    name = "NEWS_SOURCE",
+    havingValue = "template",
+    matchIfMissing = true)
 public class TemplateNewsSource implements NewsSource {
 
     private static final Logger log = LoggerFactory.getLogger(TemplateNewsSource.class);

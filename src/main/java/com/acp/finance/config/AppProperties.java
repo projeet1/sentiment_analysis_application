@@ -35,4 +35,10 @@ public class AppProperties {
 
     @Value("${DYNAMODB_TABLE:trade-signals}")
     public String dynamoDbTable;
+
+    @Value("${FINNHUB_API_KEY:}")
+    public String finnhubApiKey;
+
+    @Value("${NEWS_SOURCE:template}")
+    public String newsSource;
 }

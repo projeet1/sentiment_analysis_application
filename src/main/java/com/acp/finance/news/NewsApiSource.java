@@ -14,7 +14,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
-@ConditionalOnProperty(name = "MOCK_NEWS", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(
+    name = "NEWS_SOURCE",
+    havingValue = "newsapi")
 public class NewsApiSource implements NewsSource {
 
     private static final Logger log = LoggerFactory.getLogger(NewsApiSource.class);

@@ -118,6 +118,15 @@ public class EventInjectorController {
     @PostMapping("/inject")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> inject(@RequestBody Map<String, Object> body) {
+        if ("finnhub".equalsIgnoreCase(props.newsSource)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "status", "disabled",
+                "message", "Event injection is disabled in " +
+                    "live Finnhub mode — real headlines are " +
+                    "flowing. Set NEWS_SOURCE=template to " +
+                    "enable simulation."
+            ));
+        }
         String ticker    = ((String) body.getOrDefault("ticker",       "AAPL")).trim().toUpperCase();
         String sentiment = ((String) body.getOrDefault("sentiment",    "NEUTRAL")).trim().toUpperCase();
         int    count     = ((Number) body.getOrDefault("articleCount", 5)).intValue();

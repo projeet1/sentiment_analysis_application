@@ -9,6 +9,7 @@
 /Users/projeetbhaumik/Documents/CW3/src/main/java/com/acp/finance/strategy/EmaStrategy.java
 /Users/projeetbhaumik/Documents/CW3/src/main/java/com/acp/finance/config/StrategyConfig.java
 /Users/projeetbhaumik/Documents/CW3/src/main/java/com/acp/finance/controller/DashboardController.java
+/Users/projeetbhaumik/Documents/CW3/src/main/java/com/acp/finance/news/FinnhubNewsSource.java
 /Users/projeetbhaumik/Documents/CW3/src/main/java/com/acp/finance/strategy/MomentumStrategy.java
 /Users/projeetbhaumik/Documents/CW3/src/main/java/com/acp/finance/controller/EventInjectorController.java
 /Users/projeetbhaumik/Documents/CW3/src/main/java/com/acp/finance/model/NewsArticle.java

@@ -86,12 +86,15 @@ services:
       NEWS_API_KEY: ${NEWS_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       TICKERS: AAPL,TSLA,MSFT,GOOGL
-      MOCK_NEWS: "true"
+      NEWS_SOURCE: "finnhub"
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY}
+      # To use Finnhub:   set NEWS_SOURCE=finnhub in .env
+      # To use NewsAPI:   set NEWS_SOURCE=newsapi in .env
+      # Local mode (default): NEWS_SOURCE=template
       AAPL_BIAS: "0.8"
       TSLA_BIAS: "0.2"
       MSFT_BIAS: "0.65"
       GOOGL_BIAS: "0.5"
-      # To switch to real NewsAPI: set MOCK_NEWS=false and set NEWS_API_KEY
       MOCK_SENTIMENT: "true"
       BUY_THRESHOLD: "0.15"
       SELL_THRESHOLD: "-0.15"

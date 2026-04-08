@@ -2,6 +2,7 @@ com/acp/finance/strategy/RollingAverageStrategy.class
 com/acp/finance/config/StrategyConfig.class
 com/acp/finance/controller/DashboardController.class
 com/acp/finance/controller/EventInjectorController.class
+com/acp/finance/news/FinnhubNewsSource.class
 com/acp/finance/strategy/SentimentStrategy.class
 com/acp/finance/config/DynamoDbConfig.class
 com/acp/finance/config/AppProperties.class
