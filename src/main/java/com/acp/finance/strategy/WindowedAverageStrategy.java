@@ -16,7 +16,7 @@ public class WindowedAverageStrategy implements SentimentStrategy {
     public void update(String ticker, double score, StringRedisTemplate redis) {
         String key = "sentiment:" + ticker + ":window";
         redis.opsForList().leftPush(key, String.valueOf(score));
-        redis.opsForList().trim(key, 0, 9);
+        redis.opsForList().trim(key, 0, 4);
     }
 
     @Override

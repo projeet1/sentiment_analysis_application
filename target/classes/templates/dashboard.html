@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Finance Sentiment Pipeline</title>
+  <title>Macro Market Sentiment Pipeline</title>
   <link rel="icon" href="data:,">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
   <style>
@@ -356,8 +356,8 @@
 </head>
 <body>
 
-<h1>Finance Sentiment Pipeline</h1>
-<p class="subtitle">Real-time news sentiment → trade signals via Kafka, Redis, RabbitMQ and DynamoDB</p>
+<h1>Macro Market Sentiment Pipeline</h1>
+<p class="subtitle">Real-time macro news sentiment → trade signals for SPY, QQQ, TLT, GLD, USO via Kafka, Redis, RabbitMQ and DynamoDB</p>
 
 <div class="controls">
   <button class="btn btn-primary" onclick="triggerPoll()">Poll News Now</button>
@@ -382,16 +382,16 @@
     <span style="color:#475569;font-size:12px">Loading scenarios&hellip;</span>
   </div>
   <div class="simulator-footer">
-    <p class="simulator-desc">Inject breaking news events to demonstrate strategy divergence in real time. EMA reacts immediately, Rolling Average lags.</p>
+    <p class="simulator-desc">Inject macro market events to observe cross-asset strategy divergence in real time. EMA reacts immediately; Rolling Average lags.</p>
     <button class="btn reset-btn" onclick="resetAll()">Reset All</button>
   </div>
 </div>
 
 <div class="grid">
 
-  <!-- Ticker sentiment bar chart -->
+  <!-- Instrument sentiment bar chart -->
   <div class="card">
-    <h2>Ticker sentiment</h2>
+    <h2>Instrument sentiment</h2>
     <div id="ticker-list"></div>
   </div>
 
@@ -759,7 +759,7 @@
           <canvas id="chart-${ticker}"></canvas>
         </div>
       </div>
-      <div class="articles-section-title">Recent Articles</div>
+      <div class="articles-section-title">Recent Events</div>
       <div id="articles-section-${ticker}">
         ${renderArticlesSection(articles)}
       </div>
@@ -966,13 +966,13 @@
 
       // Update analysis mode indicator from cached articles
       const allCached = Object.values(dropdownCache).flatMap(c => c.articles || []);
-      const hasExternal = allCached.some(a => a && a.analysisMode === 'ANTHROPIC');
+      const hasGemini = allCached.some(a => a && (a.analysisMode === 'GEMINI' || a.analysisMode === 'GEMINI_IRRELEVANT'));
       const modeDot  = document.getElementById('mode-dot');
       const modeText = document.getElementById('analysis-mode-text');
       if (modeDot && modeText) {
-        if (hasExternal) {
+        if (hasGemini) {
           modeDot.classList.add('external');
-          modeText.textContent = 'External LLM Analysis';
+          modeText.textContent = 'Gemini Analysis';
           modeText.style.color = '#60a5fa';
         } else {
           modeDot.classList.remove('external');
@@ -1143,7 +1143,7 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ticker: 'AAPL',
+        ticker: 'SPY',
         sentiment: 'NEUTRAL',
         articleCount: 0
       })

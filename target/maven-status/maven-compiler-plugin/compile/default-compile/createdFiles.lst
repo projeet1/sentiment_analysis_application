@@ -11,13 +11,13 @@ com/acp/finance/model/SentimentResult.class
 com/acp/finance/news/TemplateNewsSource.class
 com/acp/finance/controller/HistoryController.class
 com/acp/finance/news/NewsSource.class
-com/acp/finance/service/SentimentScoringService$SentimentScore.class
 com/acp/finance/analysis/LocalHeuristicAnalyser.class
 com/acp/finance/model/TradeSignal.class
 com/acp/finance/FinanceSentimentApplication.class
 com/acp/finance/controller/HistoryController$2.class
 com/acp/finance/strategy/WindowedAverageStrategy.class
 com/acp/finance/service/NewsPollerService.class
+com/acp/finance/service/SentimentScoringService$ScoredResult.class
 com/acp/finance/strategy/MomentumStrategy.class
 com/acp/finance/strategy/EmaStrategy.class
 com/acp/finance/analysis/LocalHeuristicAnalyser$AnalysisResult.class
@@ -26,7 +26,6 @@ com/acp/finance/config/RabbitConfig.class
 com/acp/finance/service/AggregatorService.class
 com/acp/finance/strategy/EnsembleService$StrategyResult.class
 com/acp/finance/strategy/EnsembleService$EnsembleResult.class
-com/acp/finance/service/SentimentScoringService$FullScore.class
 com/acp/finance/model/NewsArticle.class
 com/acp/finance/analysis/DedupeChecker.class
 com/acp/finance/service/SentimentScoringService.class

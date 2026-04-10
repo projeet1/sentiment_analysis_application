@@ -41,7 +41,7 @@ public class NewsPollerService {
     }
 
     private void pollTicker(String ticker) {
-        List<NewsArticle> articles = newsSource.getLatestHeadlines(ticker, 5);
+        List<NewsArticle> articles = newsSource.getLatestHeadlines(ticker, props.pollArticlesPerTicker);
         for (NewsArticle article : articles) {
             try {
                 kafkaTemplate.send(props.kafkaTopicRaw, ticker, mapper.writeValueAsString(article));

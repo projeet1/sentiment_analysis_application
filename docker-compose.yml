@@ -84,22 +84,28 @@ services:
       AWS_ACCESS_KEY: test
       AWS_SECRET_KEY: test
       NEWS_API_KEY: ${NEWS_API_KEY}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      TICKERS: AAPL,TSLA,MSFT,GOOGL
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      TICKERS: SPY,QQQ,TLT,GLD,USO
       NEWS_SOURCE: "finnhub"
       FINNHUB_API_KEY: ${FINNHUB_API_KEY}
       # To use Finnhub:   set NEWS_SOURCE=finnhub in .env
       # To use NewsAPI:   set NEWS_SOURCE=newsapi in .env
       # Local mode (default): NEWS_SOURCE=template
-      AAPL_BIAS: "0.8"
-      TSLA_BIAS: "0.2"
-      MSFT_BIAS: "0.65"
-      GOOGL_BIAS: "0.5"
-      MOCK_SENTIMENT: "true"
+      SPY_BIAS: "0.65"
+      QQQ_BIAS: "0.6"
+      TLT_BIAS: "0.45"
+      GLD_BIAS: "0.55"
+      USO_BIAS: "0.4"
+      MOCK_SENTIMENT: "false"
       BUY_THRESHOLD: "0.15"
       SELL_THRESHOLD: "-0.15"
       # Restore to 0.3/-0.3 for real API demo
-      POLL_INTERVAL_MS: "30000"  # change to 60000 for production
+      POLL_INTERVAL_MS: "60000"
+      # ── LLM safety controls (safe defaults — no API calls unless opted in) ──
+      USE_LLM_SENTIMENT: "true"
+      MAX_LLM_CALLS_PER_MINUTE: "12"
+      LLM_DISABLE_ON_ERROR: "true"
+      POLL_ARTICLES_PER_TICKER: "2"
 
 networks:
   acp_network:

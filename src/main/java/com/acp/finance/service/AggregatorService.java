@@ -215,15 +215,33 @@ public class AggregatorService {
     // --- Dashboard accessors ---
 
     public List<SentimentResult> getRecentArticles(String ticker) {
-        List<String> raw = redis.opsForList().range("recent:" + ticker, 0, 4);
+        // Read a larger slice so we have enough candidates after deduplication.
+        List<String> raw = redis.opsForList().range("recent:" + ticker, 0, 29);
         if (raw == null || raw.isEmpty()) return List.of();
-        return raw.stream()
+
+        // Deserialize, preserving insertion order (newest first).
+        List<SentimentResult> parsed = raw.stream()
                 .map(s -> {
                     try { return mapper.readValue(s, SentimentResult.class); }
                     catch (Exception e) { return null; }
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
+
+        // Dedupe: keep the first (most recent) occurrence of each unique event.
+        // Key = contentHash when present and non-blank; otherwise normalised headline.
+        Set<String> seen = new LinkedHashSet<>();
+        List<SentimentResult> unique = new ArrayList<>();
+        for (SentimentResult r : parsed) {
+            String key = (r.getContentHash() != null && !r.getContentHash().isBlank())
+                    ? r.getContentHash()
+                    : com.acp.finance.model.NewsArticle.normalise(r.getHeadline());
+            if (seen.add(key)) {
+                unique.add(r);
+                if (unique.size() == 5) break;
+            }
+        }
+        return unique;
     }
 
     public Map<String, Double> getLatestScores() {

@@ -40,8 +40,8 @@ public class MomentumStrategy implements SentimentStrategy {
     public String getSignal(String ticker, StringRedisTemplate redis,
                             double buyThreshold, double sellThreshold) {
         double delta = getScore(ticker, redis);
-        if (delta >= 0.05)  return "BUY";
-        if (delta <= -0.05) return "SELL";
+        if (delta >= 0.03)  return "BUY";
+        if (delta <= -0.03) return "SELL";
         return "HOLD";
     }
 }

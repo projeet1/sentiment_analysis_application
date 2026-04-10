@@ -15,7 +15,7 @@ public class EmaStrategy implements SentimentStrategy {
         String key      = "sentiment:" + ticker + ":ema:value";
         String existing = redis.opsForValue().get(key);
         double prev     = existing != null ? Double.parseDouble(existing) : score;
-        double ema      = (score * 0.3) + (prev * 0.7);
+        double ema      = (score * 0.5) + (prev * 0.5);
         redis.opsForValue().set(key, String.format("%.6f", ema));
     }
 

@@ -26,81 +26,71 @@ public class EventInjectorController {
     private final StringRedisTemplate redis;
     private final Random random = new Random();
 
-    private static final Map<String, String> COMPANY_NAMES = Map.of(
-            "AAPL",  "Apple",
-            "TSLA",  "Tesla",
-            "MSFT",  "Microsoft",
-            "GOOGL", "Alphabet"
-    );
-
-    private static final String[] DIVISIONS = {
-            "cloud", "AI", "advertising", "hardware",
-            "software", "services", "retail", "enterprise", "mobile"
-    };
+    // ─── Macro headline pools (shared across instruments) ──────────────────────
 
     private static final String[] CRASH = {
-            "{company} shares collapse after catastrophic earnings miss",
-            "{company} CEO arrested amid fraud investigation",
-            "{company} faces imminent bankruptcy filing reports suggest",
-            "{company} recalls entire product line over safety crisis",
-            "{company} loses landmark lawsuit facing billion dollar damages",
-            "{company} credit rating downgraded to junk status",
-            "{company} major data breach exposes millions of customers",
-            "{company} regulators freeze operations pending investigation",
-            "{company} largest shareholder dumps entire stake immediately",
-            "{company} profit warning sends shares into freefall"
+        "Wall Street tumbles on policy shock fears",
+        "US equities plunge as systemic risk concerns grip markets",
+        "S&P 500 enters freefall on emergency Fed intervention fears",
+        "Treasury yields spike as bonds sell off sharply",
+        "Gold slumps as the dollar surges on safe-haven flows",
+        "Oil sinks on severe global growth concerns",
+        "Nasdaq collapses as rate shock triggers leveraged unwind",
+        "Credit markets seize up driving panic selling across asset classes",
+        "Risk assets in meltdown as recession probability surges",
+        "Broad market sell-off accelerates on deteriorating macro outlook"
     };
 
     private static final String[] BEARISH = {
-            "{company} misses earnings estimates for third consecutive quarter",
-            "{company} cuts workforce by {n} thousand amid restructuring",
-            "{company} loses major contract to competitor",
-            "{company} faces regulatory fine over {division} practices",
-            "{company} CFO resigns unexpectedly citing personal reasons",
-            "{company} delays flagship product launch indefinitely",
-            "{company} reports widening losses in core {division} unit",
-            "{company} analyst downgrades to sell with lower price target",
-            "{company} market share falls as competition intensifies",
-            "{company} revenue misses estimates amid weak demand"
+        "US stocks fall after hawkish Fed remarks at policy meeting",
+        "Nasdaq slides as Treasury yields surge on strong jobs data",
+        "Treasury bonds sell off as rate cuts are repriced lower",
+        "Gold drops as rising real yields weigh on precious metals",
+        "Oil weakens on demand fears as global growth outlook dims",
+        "S&P 500 retreats after hotter-than-expected inflation reading",
+        "Growth stocks underperform as bond yields climb to recent highs",
+        "Energy markets retreat as recession risks dampen demand forecasts",
+        "Investors reduce risk exposure ahead of key central bank decision",
+        "US equities decline as credit spreads widen on macro uncertainty"
     };
 
     private static final String[] NEUTRAL = {
-            "{company} files routine quarterly report with regulators",
-            "{company} board approves annual meeting date",
-            "{company} confirms no material change to business outlook",
-            "{company} appoints independent director to board",
-            "{company} updates standard corporate governance policies",
-            "{company} participates in industry conference next month",
-            "{company} renews existing supplier agreements as expected",
-            "{company} publishes annual sustainability report",
-            "{company} confirms dividend payment schedule unchanged",
-            "{company} completes routine share register update"
+        "Investors await the latest CPI report before making major moves",
+        "Markets hold steady ahead of the Federal Reserve decision",
+        "Treasury market quiet in thin trading ahead of key data release",
+        "Gold holds near recent range as dollar and yields offset each other",
+        "Oil trades sideways as traders assess conflicting supply signals",
+        "US equities flat as investors digest mixed economic data",
+        "Bond yields unchanged as markets price a data-dependent Fed",
+        "Macro calendar light this week keeping volumes subdued",
+        "Commodities consolidate near recent levels ahead of OPEC meeting",
+        "Cross-asset volatility low as market awaits next catalyst"
     };
 
     private static final String[] BULLISH = {
-            "{company} beats earnings estimates with record quarterly profit",
-            "{company} announces major share buyback programme",
-            "{company} raises full year guidance above analyst expectations",
-            "{company} wins landmark contract worth {n} billion",
-            "{company} announces breakthrough product driving growth",
-            "{company} reports strongest revenue growth in five years",
-            "{company} expands into {n} new markets this quarter",
-            "{company} dividend increased by {n} percent for shareholders",
-            "{company} gains significant market share from competitors",
-            "{company} upgraded to strong buy by leading analysts"
+        "US stocks rally after softer-than-expected inflation data",
+        "Nasdaq gains as Treasury yields ease on dovish Fed commentary",
+        "Treasury bonds jump on rising rate-cut expectations",
+        "Gold rises on safe-haven demand and weaker dollar",
+        "Oil climbs on supply concerns and improving demand outlook",
+        "S&P 500 advances broadly as consumer sentiment beats forecasts",
+        "Growth stocks lead gains as real yields fall back from recent highs",
+        "Bond market rallies after Fed signals patient approach to tightening",
+        "Precious metals firm as inflation expectations tick higher",
+        "Energy prices rise after surprise drawdown in US crude inventories"
     };
 
     private static final String[] EUPHORIA = {
-            "{company} announces revolutionary product changing entire industry",
-            "{company} reports profit doubling beating all expectations",
-            "{company} secures historic {n} billion government contract",
-            "{company} stock hits all time high on record breaking results",
-            "{company} announces merger creating worlds most valuable company",
-            "{company} cure approved driving unprecedented revenue growth",
-            "{company} AI breakthrough sends shares surging to record",
-            "{company} Warren Buffett acquires major stake in company",
-            "{company} revenue triples as global expansion accelerates",
-            "{company} announces {n} for one stock split amid surge"
+        "S&P 500 surges as markets price aggressive Fed easing cycle",
+        "Nasdaq jumps on broad risk-on momentum after inflation shock fades",
+        "Treasury bonds soar on recession fears and rate-cut expectations",
+        "Gold breaks higher on intense safe-haven demand amid global stress",
+        "Oil spikes sharply on major supply disruption fears",
+        "US equities hit record highs as soft landing narrative is confirmed",
+        "Bond market in historic rally as inflation falls to multi-year low",
+        "Precious metals explode higher as central bank buying accelerates",
+        "Risk assets surge across the board after surprise Fed pivot",
+        "Energy markets in euphoric rally after OPEC announces deep cuts"
     };
 
     public EventInjectorController(KafkaTemplate<String, String> kafkaTemplate,
@@ -120,14 +110,13 @@ public class EventInjectorController {
     public ResponseEntity<Map<String, Object>> inject(@RequestBody Map<String, Object> body) {
         if ("finnhub".equalsIgnoreCase(props.newsSource)) {
             return ResponseEntity.badRequest().body(Map.of(
-                "status", "disabled",
-                "message", "Event injection is disabled in " +
-                    "live Finnhub mode — real headlines are " +
-                    "flowing. Set NEWS_SOURCE=template to " +
-                    "enable simulation."
+                "status",  "disabled",
+                "message", "Event injection is disabled in live Finnhub mode — real headlines are " +
+                           "flowing. Set NEWS_SOURCE=template to enable simulation."
             ));
         }
-        String ticker    = ((String) body.getOrDefault("ticker",       "AAPL")).trim().toUpperCase();
+
+        String ticker    = ((String) body.getOrDefault("ticker",       "SPY")).trim().toUpperCase();
         String sentiment = ((String) body.getOrDefault("sentiment",    "NEUTRAL")).trim().toUpperCase();
         int    count     = ((Number) body.getOrDefault("articleCount", 5)).intValue();
 
@@ -137,25 +126,22 @@ public class EventInjectorController {
                         .collect(Collectors.toList())
                 : List.of(ticker);
 
-        String[] templates  = getTemplates(sentiment);
-        int      totalSent  = 0;
+        String[] pool    = getPool(sentiment);
+        int      totalSent = 0;
 
         try {
             for (String t : tickers) {
-                String company = COMPANY_NAMES.getOrDefault(t, t);
                 for (int i = 0; i < count; i++) {
-                    String title = fillTemplate(
-                            templates[random.nextInt(templates.length)], company);
+                    String title = pool[random.nextInt(pool.length)];
 
                     NewsArticle article = new NewsArticle();
                     article.setTicker(t);
                     article.setTitle(title);
                     article.setDescription("");
                     article.setPublishedAt(Instant.now().toString());
-                    article.setSource("MarketEvent");
+                    article.setSource("MacroEventSimulator");
 
-                    kafkaTemplate.send(props.kafkaTopicRaw, t,
-                            mapper.writeValueAsString(article));
+                    kafkaTemplate.send(props.kafkaTopicRaw, t, mapper.writeValueAsString(article));
                     totalSent++;
                 }
                 log.info("[EventInjector] Injected {} {} articles for {}", count, sentiment, t);
@@ -164,14 +150,13 @@ public class EventInjectorController {
             log.error("[EventInjector] Error injecting articles: {}", e.getMessage());
         }
 
-        String display = ticker.equals("ALL") ? "ALL tickers" : ticker;
+        String display = ticker.equals("ALL") ? "ALL instruments" : ticker;
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("status",           "ok");
         resp.put("ticker",           ticker);
         resp.put("sentiment",        sentiment);
         resp.put("articlesInjected", totalSent);
-        resp.put("message",          "Injected " + totalSent + " " + sentiment
-                                     + " articles for " + display);
+        resp.put("message",          "Injected " + totalSent + " " + sentiment + " articles for " + display);
         return ResponseEntity.ok(resp);
     }
 
@@ -181,12 +166,18 @@ public class EventInjectorController {
     @ResponseBody
     public ResponseEntity<?> getScenarios() {
         return ResponseEntity.ok(List.of(
-                scenario("Tesla Crash",       "Simulate catastrophic news for TSLA",          "TSLA",  "CRASH",    10),
-                scenario("Apple Euphoria",    "Simulate breakthrough news for AAPL",           "AAPL",  "EUPHORIA", 10),
-                scenario("Microsoft Bullish", "Simulate strong results for MSFT",              "MSFT",  "BULLISH",  8),
-                scenario("Google Bearish",    "Simulate regulatory trouble for GOOGL",         "GOOGL", "BEARISH",  8),
-                scenario("Market Crash",      "Simulate crash across all tickers simultaneously", "ALL", "CRASH",   5),
-                scenario("Market Euphoria",   "Simulate bull run across all tickers",          "ALL",   "EUPHORIA", 5)
+            scenario("Fed Dovish Pivot",
+                     "Softer Fed tone boosts equities and bonds",
+                     "ALL", "BULLISH",  8),
+            scenario("Fed Hawkish Surprise",
+                     "Hawkish Fed pressures risk assets and duration",
+                     "ALL", "BEARISH",  8),
+            scenario("Flight to Safety",
+                     "Market stress drives demand for gold and Treasuries",
+                     "GLD", "BULLISH",  8),
+            scenario("Oil Supply Shock",
+                     "Supply disruption fears send crude sharply higher",
+                     "USO", "EUPHORIA", 8)
         ));
     }
 
@@ -211,12 +202,12 @@ public class EventInjectorController {
             redis.delete("sentiment:" + t + ":momentum:prev");
             redis.delete("sentiment:" + t + ":momentum:current");
             redis.delete("sentiment:" + t + ":last_signal");
-            redis.delete("recent:"    + t);
-            redis.delete("mock:"      + t + ":pointer");
+            redis.delete("recent:" + t);
+            redis.delete("mock:"   + t + ":pointer");
             log.info("[EventInjector] Reset state for {}", t);
         }
 
-        String display = ticker.equals("ALL") ? "ALL tickers" : ticker;
+        String display = ticker.equals("ALL") ? "ALL instruments" : ticker;
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("status",  "ok");
         resp.put("message", "Reset " + display + " state");
@@ -236,7 +227,7 @@ public class EventInjectorController {
         return m;
     }
 
-    private String[] getTemplates(String sentiment) {
+    private String[] getPool(String sentiment) {
         return switch (sentiment) {
             case "CRASH"    -> CRASH;
             case "BEARISH"  -> BEARISH;
@@ -244,18 +235,5 @@ public class EventInjectorController {
             case "EUPHORIA" -> EUPHORIA;
             default         -> NEUTRAL;
         };
-    }
-
-    private String fillTemplate(String template, String company) {
-        String r = template.replace("{company}", company);
-        r = r.replace("{division}", DIVISIONS[random.nextInt(DIVISIONS.length)]);
-        // Context-aware {n} substitution — most-specific patterns first
-        r = r.replaceFirst("\\{n\\} thousand",    (random.nextInt(100) + 1)  + " thousand");
-        r = r.replaceFirst("\\{n\\} billion",     (random.nextInt(50)  + 1)  + " billion");
-        r = r.replaceFirst("\\{n\\} percent",     (random.nextInt(36)  + 5)  + " percent");
-        r = r.replaceFirst("\\{n\\} for one",     (random.nextInt(4)   + 2)  + " for one");
-        r = r.replaceFirst("\\{n\\} new markets", (random.nextInt(19)  + 2)  + " new markets");
-        r = r.replace("{n}", String.valueOf(random.nextInt(10) + 1));
-        return r;
     }
 }
