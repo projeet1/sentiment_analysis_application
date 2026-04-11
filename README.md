@@ -88,6 +88,8 @@ AggregatorService
 DashboardController
 REST API + dashboard
 
+---
+
 ## Technology Roles
 
 | Technology | Role |
