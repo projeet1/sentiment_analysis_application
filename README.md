@@ -54,6 +54,7 @@ News Source
 **Cross-cutting store: Redis** — strategy state, dedupe hashes, recent articles, history snapshots.
 
 ---
+
 ## Architecture Simpler 
 
 ```text
@@ -87,7 +88,7 @@ AggregatorService
         ▼
 DashboardController
 REST API + dashboard
-
+```
 ---
 
 ## Technology Roles
