@@ -54,6 +54,39 @@ News Source
 **Cross-cutting store: Redis** — strategy state, dedupe hashes, recent articles, history snapshots.
 
 ---
+## Architecture Simpler 
+
+```text
+News Source
+(template / finnhub)
+        │
+        ▼
+NewsPollerService
+        │
+        ▼
+Kafka: news-raw
+        │
+        ▼
+SentimentScoringService
+(deduplication, event classification,
+ heuristic or Gemini sentiment)
+        │
+        ▼
+Kafka: news-sentiment
+        │
+        ▼
+AggregatorService
+(4 strategies + ensemble signal)
+   ├──────────────► Redis
+   │                (state, recent articles, history)
+   ├──────────────► RabbitMQ
+   │                (BUY / SELL signals)
+   └──────────────► DynamoDB
+                    (signal audit log)
+        │
+        ▼
+DashboardController
+REST API + dashboard
 
 ## Technology Roles
 
